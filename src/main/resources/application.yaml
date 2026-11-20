@@ -31,6 +31,17 @@ spring:
     baseline-on-migrate: true # needed because your DB already has tables
     baseline-version: 0
 
+lendme:
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      issuer: lendme
+      access-token-ttl: 15m
+      refresh-token-ttl: 30d
+    login:
+      max-failed-attempts: 5
+      lock-duration: 15m
+
   logging:
     level:
       org.hibernate.orm.connections.pooling: WARN
