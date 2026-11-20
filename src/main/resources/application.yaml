@@ -10,9 +10,27 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: LendmeHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      auto-commit: false          # let Spring/Hibernate manage transactions
+      connection-timeout: 30000   # ms to wait for a connection
+      idle-timeout: 600000        # ms before an idle connection is retired
+      max-lifetime: 1800000       # ms max lifetime of a connection
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate      # Hibernate no longer changes the schema
     show-sql: true
     open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true # needed because your DB already has tables
+    baseline-version: 0
+
+  logging:
+    level:
+      org.hibernate.orm.connections.pooling: WARN
