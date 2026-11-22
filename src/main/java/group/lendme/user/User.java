@@ -33,11 +33,12 @@ public class User extends BaseEntity {
 
     /** E.164 format, e.g. +254712345678 */
     @Column(name = "phone_number", nullable = false, unique = true, length = 13)
-    private String phoneNumber;
+    private PhoneNumber phoneNumber;
 
     /** Optional. Stored lower-case. */
     @Column(name = "email", unique = true)
-    private String email;
+    private Email email;
+
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
@@ -61,16 +62,29 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
-    public User(String firstName, String lastName, String phoneNumber,
-                String email, String passwordHash) {
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.phoneNumber = phoneNumber;
-        this.email = email;
-        this.passwordHash = passwordHash;
-        this.roles.add(Role.USER);   // everyone starts as a normal user
+    @Column(name = "kyc_verified", nullable = false)
+    private boolean kycVerified;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
+    public User(String firstName, String lastName, PhoneNumber phoneNumber,
+                Email email, String passwordHash) {
+        this.firstName = requireText(firstName, "firstName");
+        this.lastName = requireText(lastName, "lastName");
+        this.phoneNumber = java.util.Objects.requireNonNull(phoneNumber, "phoneNumber is required");
+        this.email = email;                       // optional
+        this.passwordHash = requireText(passwordHash, "passwordHash");
+        this.roles.add(Role.USER);
         this.enabled = true;
         this.failedLoginAttempts = 0;
+    }
+
+    private static String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value.trim();
     }
 
     // ---------- roles ----------
@@ -125,12 +139,17 @@ public class User extends BaseEntity {
     }
 
     public void changeName(String firstName, String lastName) {
-        this.firstName = firstName;
-        this.lastName = lastName;
+        this.firstName = requireText(firstName, "firstName");
+        this.lastName = requireText(lastName, "lastName");
     }
 
     public void changePassword(String newPasswordHash) {
-        this.passwordHash = newPasswordHash;
+        this.passwordHash = requireText(newPasswordHash, "passwordHash");
+    }
+
+    /** The user proved they own the email address (OTP confirmed). */
+    public void markEmailVerified() {
+        this.emailVerified = true;
     }
 
     public void disable() {
@@ -144,5 +163,20 @@ public class User extends BaseEntity {
     public void unlock() {
         this.lockedUntil = null;
         this.failedLoginAttempts = 0;
+    }
+
+    // ---------- capabilities (not roles) ----------
+
+    public void markKycVerified() {
+        this.kycVerified = true;
+    }
+
+    /** Any active, verified user may lend. Borrowing and lending are not roles. */
+    public boolean canLend() {
+        return enabled && kycVerified;
+    }
+
+    public boolean canBorrow() {
+        return enabled;
     }
 }
