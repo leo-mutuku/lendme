@@ -2,6 +2,10 @@ package group.lendme.loan;
 
 import group.lendme.common.entity.BaseEntity;
 import group.lendme.common.exception.BusinessRuleException;
+import group.lendme.loan.application.ApplicationStatus;
+import group.lendme.loan.application.LoanApplication;
+import group.lendme.loan.state.LoanState;
+import group.lendme.loan.state.LoanStatus;
 import group.lendme.repayment.Repayment;
 import group.lendme.user.User;
 import jakarta.persistence.*;
@@ -14,8 +18,11 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * A real debt. It only exists once a LoanApplication has been approved
- * (see LoanApplication.approve) - there is no public constructor.
+ * A real debt. It only exists once a LoanApplication has been approved:
+ * the constructor is private and open() refuses anything not APPROVED.
+ *
+ * Its balance and status can only change through its own methods; the
+ * state objects only say which status comes next.
  *
  * Borrower and lender are positions a User takes on THIS loan.
  * The same User can be the borrower on one loan and the lender on another.
@@ -53,7 +60,7 @@ public class Loan extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     private LoanStatus status;
 
-    /** Private: the rules (self-lending, canLend, amount) were already checked by the application. */
+    /** Private: use open(). Self-lending, canLend and amount were checked by the application. */
     private Loan(LoanApplication application, User lender, LocalDate startDate) {
         this.application = application;
         this.borrower = application.getApplicant();
@@ -64,34 +71,48 @@ public class Loan extends BaseEntity {
         this.status = LoanStatus.ACTIVE;   // a loan starts active - the request steps are done
     }
 
-    /** Package-private: only LoanApplication.approve() calls this. */
-    static Loan fromApplication(LoanApplication application, User lender, LocalDate startDate) {
+    /**
+     * The only way to create a Loan. Called by LoanApplication.approve().
+     * Public because it lives in another package, so it checks the rules itself;
+     * the UNIQUE(application_id) constraint stops a second loan per application.
+     */
+    public static Loan open(LoanApplication application, User lender, LocalDate startDate) {
+        if (application.getStatus() != ApplicationStatus.APPROVED) {
+            throw new BusinessRuleException("APPLICATION_NOT_APPROVED",
+                    "Only an approved application can become a loan");
+        }
+        if (application.getReviewer() == null
+                || !application.getReviewer().getId().equals(lender.getId())) {
+            throw new BusinessRuleException("NOT_REVIEWER", "Only the approving lender can fund this loan");
+        }
         return new Loan(application, lender, startDate);
     }
 
-    // ---------- actions: Loan hands each one to its current state ----------
+    // ---------- actions: the state decides the next status, Loan applies it ----------
 
-    public void recordRepayment(Repayment r)  { state().recordRepayment(this, r); }
-    public void markOverdue()                 { state().markOverdue(this); }
-    public void markDefaulted()               { state().markDefaulted(this); }
+    public void recordRepayment(Repayment repayment) {
+        BigDecimal amount = repayment.getAmount();
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("Repayment must be positive");
+        }
+        BigDecimal newBalance = balance.subtract(amount);
+        LoanStatus next = state().onRepayment(newBalance.signum() <= 0);  // refuses if not allowed
+        if (newBalance.signum() < 0) {
+            throw new BusinessRuleException("OVERPAYMENT", "Repayment exceeds outstanding balance");
+        }
+        this.balance = newBalance;
+        this.status = next;
+    }
+
+    public void markOverdue()   { this.status = state().onOverdue(); }
+
+    public void markDefaulted() { this.status = state().onDefault(); }
 
     public boolean isPastDue(LocalDate today) { return today.isAfter(dueDate); }
 
-    // ---------- package-private: only state classes use these ----------
+    public boolean isFullyPaid() { return balance.signum() == 0; }
 
-    LoanState state() { return status.state(); }
-
-    void setState(LoanStatus newStatus) { this.status = newStatus; }
-
-    void reduceBalance(BigDecimal amount) {
-        if (amount == null || amount.signum() <= 0)
-            throw new IllegalArgumentException("Repayment must be positive");
-        if (amount.compareTo(balance) > 0)
-            throw new BusinessRuleException("OVERPAYMENT", "Repayment exceeds outstanding balance");
-        balance = balance.subtract(amount);
-    }
-
-    boolean isFullyPaid() { return balance.signum() == 0; }
+    private LoanState state() { return status.state(); }
 
     // ---------- position checks (replace "roles" for loan actions) ----------
 

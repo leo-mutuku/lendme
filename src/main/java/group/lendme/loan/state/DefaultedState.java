@@ -1,6 +1,7 @@
-package group.lendme.loan;
+package group.lendme.loan.state;
 
-/** Final state: the borrower failed to repay. No overrides, so every action is rejected. */
+/** Final state: the borrower failed to repay. No overrides, so every action is refused. */
 final class DefaultedState implements LoanState {
-    public LoanStatus status() { return LoanStatus.DEFAULTED; }
+
+    @Override public LoanStatus status() { return LoanStatus.DEFAULTED; }
 }

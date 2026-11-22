@@ -1,6 +1,7 @@
-package group.lendme.loan;
+package group.lendme.loan.state;
 
-/** Final state: the loan is fully repaid. No overrides, so every action is rejected. */
+/** Final state: the loan is fully repaid. No overrides, so every action is refused. */
 final class CompletedState implements LoanState {
-    public LoanStatus status() { return LoanStatus.COMPLETED; }
+
+    @Override public LoanStatus status() { return LoanStatus.COMPLETED; }
 }

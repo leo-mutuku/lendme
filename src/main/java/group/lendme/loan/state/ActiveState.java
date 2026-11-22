@@ -1,14 +1,13 @@
-package group.lendme.loan;
+package group.lendme.loan.state;
 
-import group.lendme.repayment.Repayment;
-
+/** Money is out and repayments are expected. */
 final class ActiveState implements LoanState {
-    public LoanStatus status() { return LoanStatus.ACTIVE; }
 
-    @Override public void recordRepayment(Loan loan, Repayment r) {
-        loan.reduceBalance(r.getAmount());
-        if (loan.isFullyPaid()) loan.setState(LoanStatus.COMPLETED);
+    @Override public LoanStatus status() { return LoanStatus.ACTIVE; }
+
+    @Override public LoanStatus onRepayment(boolean fullyPaid) {
+        return fullyPaid ? LoanStatus.COMPLETED : LoanStatus.ACTIVE;
     }
 
-    @Override public void markOverdue(Loan loan) { loan.setState(LoanStatus.OVERDUE); }
+    @Override public LoanStatus onOverdue() { return LoanStatus.OVERDUE; }
 }

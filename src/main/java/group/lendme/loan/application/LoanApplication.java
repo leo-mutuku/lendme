@@ -1,7 +1,8 @@
-package group.lendme.loan;
+package group.lendme.loan.application;
 
 import group.lendme.common.entity.BaseEntity;
 import group.lendme.common.exception.BusinessRuleException;
+import group.lendme.loan.Loan;
 import group.lendme.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -90,7 +91,7 @@ public class LoanApplication extends BaseEntity {
         requireStatus(ApplicationStatus.UNDER_REVIEW);
         requireReviewer(lender);
         this.status = ApplicationStatus.APPROVED;
-        return Loan.fromApplication(this, lender, startDate);
+        return Loan.open(this, lender, startDate);
     }
 
     /** Rejected applications never produce a Loan. */

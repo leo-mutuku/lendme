@@ -1,4 +1,4 @@
-package group.lendme.loan;
+package group.lendme.loan.application;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

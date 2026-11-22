@@ -1,14 +1,13 @@
-package group.lendme.loan;
+package group.lendme.loan.state;
 
-import group.lendme.repayment.Repayment;
-
+/** Past the due date but still repayable. */
 final class OverdueState implements LoanState {
-    public LoanStatus status() { return LoanStatus.OVERDUE; }
 
-    @Override public void recordRepayment(Loan loan, Repayment r) {
-        loan.reduceBalance(r.getAmount());
-        if (loan.isFullyPaid()) loan.setState(LoanStatus.COMPLETED);
+    @Override public LoanStatus status() { return LoanStatus.OVERDUE; }
+
+    @Override public LoanStatus onRepayment(boolean fullyPaid) {
+        return fullyPaid ? LoanStatus.COMPLETED : LoanStatus.OVERDUE;
     }
 
-    @Override public void markDefaulted(Loan loan) { loan.setState(LoanStatus.DEFAULTED); }
+    @Override public LoanStatus onDefault() { return LoanStatus.DEFAULTED; }
 }

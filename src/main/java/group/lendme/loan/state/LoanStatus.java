@@ -1,6 +1,10 @@
-package group.lendme.loan;
+package group.lendme.loan.state;
 
-/** States of a real loan. Request steps (submitted/approved/rejected) live in ApplicationStatus. */
+/**
+ * States of a real loan - this is what is stored in loans.status.
+ * Request steps (submitted/approved/rejected) live in ApplicationStatus.
+ * Each value holds the LoanState object that defines its behaviour.
+ */
 public enum LoanStatus {
     ACTIVE(new ActiveState()),
     OVERDUE(new OverdueState()),
@@ -11,7 +15,7 @@ public enum LoanStatus {
 
     LoanStatus(LoanState state) { this.state = state; }
 
-    LoanState state() { return state; }
+    public LoanState state() { return state; }
 
     public boolean isOpen() { return this == ACTIVE || this == OVERDUE; }
 }
