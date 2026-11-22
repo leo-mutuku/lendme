@@ -62,6 +62,19 @@ public class EmailService {
                 """.formatted(firstName));
     }
 
+    public void sendApplicationDecision(String to, String firstName, String offerTitle,
+                                        boolean approved, String details) {
+        String subject = approved ? "Your LendMe loan application was approved"
+                                  : "Your LendMe loan application was not approved";
+        send(to, subject, """
+                Hi %s,
+
+                Your application to "%s" was %s.
+
+                %s
+                """.formatted(firstName, offerTitle, approved ? "approved" : "not approved", details));
+    }
+
     private void send(String to, String subject, String body) {
         JavaMailSender sender = mailSender.getIfAvailable();
         if (mailHost.isBlank() || sender == null) {

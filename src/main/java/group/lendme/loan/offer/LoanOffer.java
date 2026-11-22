@@ -130,9 +130,19 @@ public class LoanOffer extends BaseEntity {
         }
     }
 
-    /** Takes the amount out of the pool. Marks the offer EXHAUSTED when the rest is below minAmount. */
-    public void allocate(BigDecimal amount, int termMonths) {
-        requireAcceptable(amount, termMonths);
+    /**
+     * Takes an approved amount out of the pool. Marks the offer EXHAUSTED when the rest is below minAmount.
+     * Works while PAUSED too (pausing only stops new applications). Amount/term limits are not
+     * re-checked: the borrower applied under the terms valid at that time.
+     */
+    public void allocate(BigDecimal amount) {
+        if (status != OfferStatus.OPEN && status != OfferStatus.PAUSED) {
+            throw new BusinessRuleException("OFFER_NOT_OPEN", "This offer is " + status + " and cannot fund loans");
+        }
+        if (amount.compareTo(availableAmount) > 0) {
+            throw new BusinessRuleException("OFFER_INSUFFICIENT_FUNDS",
+                    "Only " + availableAmount + " is left on this offer");
+        }
         availableAmount = availableAmount.subtract(amount);
         refreshExhausted();
     }

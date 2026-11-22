@@ -49,6 +49,14 @@ public class Loan extends BaseEntity {
     @Column(name = "principal", nullable = false, precision = 19, scale = 2)
     private BigDecimal principal;
 
+    /** Flat interest agreed on the application, in percent. */
+    @Column(name = "interest_rate_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal interestRatePercent;
+
+    @Column(name = "interest_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal interestAmount;
+
+    /** What is still owed: starts at principal + interestAmount. */
     @Column(name = "balance", nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
 
@@ -66,7 +74,9 @@ public class Loan extends BaseEntity {
         this.borrower = application.getApplicant();
         this.lender = lender;
         this.principal = application.getRequestedAmount();
-        this.balance = principal;          // nothing repaid yet
+        this.interestRatePercent = application.getInterestRatePercent();
+        this.interestAmount = application.getInterestAmount();
+        this.balance = principal.add(interestAmount);   // nothing repaid yet
         this.dueDate = startDate.plusMonths(application.getTermMonths());
         this.status = LoanStatus.ACTIVE;   // a loan starts active - the request steps are done
     }
@@ -111,6 +121,8 @@ public class Loan extends BaseEntity {
     public boolean isPastDue(LocalDate today) { return today.isAfter(dueDate); }
 
     public boolean isFullyPaid() { return balance.signum() == 0; }
+
+    public BigDecimal getTotalRepayable() { return principal.add(interestAmount); }
 
     private LoanState state() { return status.state(); }
 
