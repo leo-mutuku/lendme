@@ -10,6 +10,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import java.util.List;
 
@@ -36,6 +40,37 @@ public class GlobalExceptionHandler {
 
         return respond(ApiError.of(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
                 "Request validation failed", request.getRequestURI(), violations));
+    }
+
+    /** @Min/@DecimalMin etc. on @RequestParam / @PathVariable. */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiError> handleParamValidation(HandlerMethodValidationException ex, HttpServletRequest request) {
+        List<ApiError.FieldViolation> violations = ex.getParameterValidationResults().stream()
+                .flatMap(r -> r.getResolvableErrors().stream()
+                        .map(e -> new ApiError.FieldViolation(r.getMethodParameter().getParameterName(), e.getDefaultMessage())))
+                .toList();
+        return respond(ApiError.of(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
+                "Request validation failed", request.getRequestURI(), violations));
+    }
+
+    /** e.g. "abc" where a UUID or number is expected. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        return respond(ApiError.of(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER",
+                "Invalid value for '" + ex.getName() + "'", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
+        return respond(ApiError.of(HttpStatus.BAD_REQUEST, "MISSING_PARAMETER",
+                "Missing parameter '" + ex.getParameterName() + "'", request.getRequestURI()));
+    }
+
+    /** Body is missing, not JSON, or has a wrong type (e.g. text for a number). */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return respond(ApiError.of(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST",
+                "Request body is missing or malformed", request.getRequestURI()));
     }
 
     /** Unknown URL: a plain 404 instead of falling through to the 500 handler. */
