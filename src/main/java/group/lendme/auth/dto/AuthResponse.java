@@ -7,9 +7,12 @@ public record AuthResponse(
         String accessToken,
         String tokenType,
         Instant expiresAt,
+        String refreshToken,
+        Instant refreshTokenExpiresAt,
         UUID userId
 ) {
-    public static AuthResponse bearer(String token, Instant expiresAt, UUID userId) {
-        return new AuthResponse(token, "Bearer", expiresAt, userId);
+    public static AuthResponse bearer(String accessToken, Instant expiresAt,
+                                      String refreshToken, Instant refreshTokenExpiresAt, UUID userId) {
+        return new AuthResponse(accessToken, "Bearer", expiresAt, refreshToken, refreshTokenExpiresAt, userId);
     }
 }

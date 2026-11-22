@@ -3,6 +3,7 @@ package group.lendme.auth;
 import group.lendme.auth.dto.*;
 import group.lendme.auth.otp.OtpPurpose;
 import group.lendme.auth.otp.OtpService;
+import group.lendme.auth.token.RefreshTokenService;
 import group.lendme.common.exception.BadRequestException;
 import group.lendme.common.exception.BusinessRuleException;
 import group.lendme.common.exception.ConflictException;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -33,6 +35,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final TokenService tokenService;
+    private final RefreshTokenService refreshTokenService;
     private final SecurityProperties props;
 
     /** Hash of a random password, compared against when the user doesn't exist so timing doesn't reveal it. */
@@ -151,7 +154,35 @@ public class AuthService {
         user.changePassword(passwordEncoder.encode(req.newPassword()));
         user.unlock();
         user.markEmailVerified(); // receiving the code proves they own the email
+        refreshTokenService.revokeAll(user.getId()); // log out every device
         return new MessageResponse("Your password has been reset. You can now log in.");
+    }
+
+    // ---------- refresh / logout ----------
+
+    /** Revocations (and reuse detection) must stick even when we reject the request. */
+    @Transactional(noRollbackFor = {UnauthorizedException.class, ForbiddenException.class})
+    public AuthResponse refresh(RefreshTokenRequest req) {
+        UUID userId = refreshTokenService.consume(req.refreshToken());
+        User user = users.findById(userId)
+                .orElseThrow(() -> new UnauthorizedException("INVALID_REFRESH_TOKEN", "Please log in again."));
+
+        if (!user.isEnabled()) {
+            throw new ForbiddenException("ACCOUNT_DISABLED", "This account has been disabled.");
+        }
+        if (user.isLocked(Instant.now())) {
+            throw new ForbiddenException("ACCOUNT_LOCKED", "Account is locked. Try again later or reset your password.");
+        }
+        return toAuthResponse(user);
+    }
+
+    /**
+     * Revokes the refresh token. The current access token keeps working until it
+     * expires (at most the access-token TTL), so clients should also discard it.
+     */
+    @Transactional
+    public void logout(RefreshTokenRequest req) {
+        refreshTokenService.revoke(req.refreshToken());
     }
 
     // ---------- helpers ----------
@@ -177,8 +208,10 @@ public class AuthService {
     }
 
     private AuthResponse toAuthResponse(User user) {
-        TokenService.AccessToken token = tokenService.issueAccessToken(user);
-        return AuthResponse.bearer(token.value(), token.expiresAt(), user.getId());
+        TokenService.AccessToken access = tokenService.issueAccessToken(user);
+        RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
+        return AuthResponse.bearer(access.value(), access.expiresAt(),
+                refresh.value(), refresh.expiresAt(), user.getId());
     }
 
     private static UnauthorizedException invalidCredentials() {
@@ -187,7 +220,7 @@ public class AuthService {
 
     private String dummyHash() {
         if (dummyHash == null) {
-            dummyHash = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
+            dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
         }
         return dummyHash;
     }

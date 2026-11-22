@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/auth") // served at /api/v1/auth (see WebConfig)
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Register, verify email, log in and reset password")
+@Tag(name = "Authentication", description = "Register, verify email, log in, refresh, log out and reset password")
 @SecurityRequirements() // these endpoints don't need a Bearer token
 public class AuthController {
 
@@ -41,6 +41,20 @@ public class AuthController {
     @Operation(summary = "Log in with email or phone number and password")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Get a new access token",
+            description = "The refresh token can be used once; the response contains a new one.")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Log out", description = "Revokes the refresh token. Discard the access token on the client.")
+    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request);
     }
 
     @PostMapping("/forgot-password")
