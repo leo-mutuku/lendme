@@ -45,3 +45,12 @@ lendme:
   logging:
     level:
       org.hibernate.orm.connections.pooling: WARN
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    persist-authorization: true   # keep the Bearer token across page reloads
+    operations-sorter: method
+    tags-sorter: alpha
+  default-produces-media-type: application/json
