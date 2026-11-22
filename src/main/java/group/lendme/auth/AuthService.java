@@ -4,6 +4,7 @@ import group.lendme.auth.dto.*;
 import group.lendme.auth.otp.OtpPurpose;
 import group.lendme.auth.otp.OtpService;
 import group.lendme.auth.token.RefreshTokenService;
+import group.lendme.notification.EmailService;
 import group.lendme.common.exception.BadRequestException;
 import group.lendme.common.exception.BusinessRuleException;
 import group.lendme.common.exception.ConflictException;
@@ -36,6 +37,7 @@ public class AuthService {
     private final OtpService otpService;
     private final TokenService tokenService;
     private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
     private final SecurityProperties props;
 
     /** Hash of a random password, compared against when the user doesn't exist so timing doesn't reveal it. */
@@ -156,6 +158,45 @@ public class AuthService {
         user.markEmailVerified(); // receiving the code proves they own the email
         refreshTokenService.revokeAll(user.getId()); // log out every device
         return new MessageResponse("Your password has been reset. You can now log in.");
+    }
+
+    // ---------- change password (logged in) ----------
+
+    /**
+     * A wrong current password counts as a failed login, so a stolen access token
+     * can't be used to guess the password. On success every other session is ended
+     * and this one gets fresh tokens.
+     */
+    @Transactional(noRollbackFor = {BusinessRuleException.class, ForbiddenException.class})
+    public AuthResponse changePassword(UUID userId, ChangePasswordRequest req) {
+        Instant now = Instant.now();
+        User user = users.findById(userId)
+                .orElseThrow(() -> new UnauthorizedException("INVALID_TOKEN", "Please log in again."));
+
+        if (!user.isEnabled()) {
+            throw new ForbiddenException("ACCOUNT_DISABLED", "This account has been disabled.");
+        }
+        if (user.isLocked(now)) {
+            throw new ForbiddenException("ACCOUNT_LOCKED", "Too many failed attempts. Try again later or reset your password.");
+        }
+        if (!passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
+            SecurityProperties.Login cfg = props.login();
+            if (user.recordFailedLogin(cfg.maxFailedAttempts(), cfg.lockDuration(), now)) {
+                log.warn("User {} locked after wrong current passwords on change-password", user.getId());
+            }
+            throw new BusinessRuleException("INVALID_CURRENT_PASSWORD", "Current password is incorrect");
+        }
+        if (passwordEncoder.matches(req.newPassword(), user.getPasswordHash())) {
+            throw new BusinessRuleException("SAME_PASSWORD", "New password must be different from the current one");
+        }
+
+        user.changePassword(passwordEncoder.encode(req.newPassword()));
+        user.recordSuccessfulLogin(now); // clears failed attempts
+        refreshTokenService.revokeAll(user.getId());
+        if (user.getEmail() != null) {
+            emailService.sendPasswordChanged(user.getEmail().value(), user.getFirstName());
+        }
+        return toAuthResponse(user);
     }
 
     // ---------- refresh / logout ----------

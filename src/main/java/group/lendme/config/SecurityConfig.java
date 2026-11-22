@@ -18,8 +18,16 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
 
+    /** Listed one by one so any new endpoint requires a token unless added here. */
     public static final String[] PUBLIC_PATHS = {
-            WebConfig.API_V1 + "/auth/**",
+            WebConfig.API_V1 + "/auth/register",
+            WebConfig.API_V1 + "/auth/verify-email",
+            WebConfig.API_V1 + "/auth/resend-verification",
+            WebConfig.API_V1 + "/auth/login",
+            WebConfig.API_V1 + "/auth/refresh",
+            WebConfig.API_V1 + "/auth/logout",
+            WebConfig.API_V1 + "/auth/forgot-password",
+            WebConfig.API_V1 + "/auth/reset-password",
             "/error"
     };
 

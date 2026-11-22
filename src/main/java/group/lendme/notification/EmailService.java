@@ -51,6 +51,17 @@ public class EmailService {
         send(to, subject, body);
     }
 
+    public void sendPasswordChanged(String to, String firstName) {
+        send(to, "Your LendMe password was changed", """
+                Hi %s,
+
+                The password for your LendMe account was just changed and you were signed out
+                on your other devices.
+
+                If this wasn't you, reset your password right away using "Forgot password".
+                """.formatted(firstName));
+    }
+
     private void send(String to, String subject, String body) {
         JavaMailSender sender = mailSender.getIfAvailable();
         if (mailHost.isBlank() || sender == null) {
