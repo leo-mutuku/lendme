@@ -9,6 +9,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
@@ -35,6 +36,18 @@ public class GlobalExceptionHandler {
 
         return respond(ApiError.of(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
                 "Request validation failed", request.getRequestURI(), violations));
+    }
+
+    /** Unknown URL: a plain 404 instead of falling through to the 500 handler. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+        return respond(ApiError.of(HttpStatus.NOT_FOUND, "NOT_FOUND", "No endpoint at this path", request.getRequestURI()));
+    }
+
+    /** Value objects (Email, PhoneNumber...) reject bad input with IllegalArgumentException. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        return respond(ApiError.of(HttpStatus.BAD_REQUEST, "INVALID_INPUT", ex.getMessage(), request.getRequestURI()));
     }
 
     /** Two updates hit the same record at once (see @Version in BaseEntity). */
