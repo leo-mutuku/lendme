@@ -14,7 +14,8 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "lendme.security")
 public record SecurityProperties(
         @Valid @NotNull Jwt jwt,
-        @Valid @NotNull Login login
+        @Valid @NotNull Login login,
+        @Valid @NotNull Otp otp
 ) {
     public record Jwt(
             @NotBlank String secret,
@@ -26,5 +27,11 @@ public record SecurityProperties(
     public record Login(
             @Min(1) int maxFailedAttempts,
             @NotNull Duration lockDuration
+    ) {}
+
+    public record Otp(
+            @NotNull Duration ttl,
+            @Min(1) int maxAttempts,
+            @NotNull Duration resendCooldown
     ) {}
 }

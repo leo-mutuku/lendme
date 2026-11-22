@@ -81,6 +81,12 @@
 			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
 		</dependency>
 
+		<!-- Sends OTP emails -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- @NotBlank, @Email, @Size on request DTOs -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
