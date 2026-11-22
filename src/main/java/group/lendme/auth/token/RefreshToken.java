@@ -34,6 +34,10 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    /** True when exchanged for a new token at /refresh (as opposed to logout or password change). */
+    @Column(name = "rotated", nullable = false)
+    private boolean rotated;
+
     public RefreshToken(UUID userId, String tokenHash, Instant expiresAt) {
         this.userId = Objects.requireNonNull(userId);
         this.tokenHash = Objects.requireNonNull(tokenHash);
@@ -52,5 +56,11 @@ public class RefreshToken extends BaseEntity {
         if (revokedAt == null) {
             revokedAt = now;
         }
+    }
+
+    /** Used once at /refresh and replaced by a new token. */
+    public void rotate(Instant now) {
+        revoke(now);
+        rotated = true;
     }
 }

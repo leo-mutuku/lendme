@@ -41,9 +41,10 @@ public class RefreshTokenService {
     }
 
     /**
-     * Checks the token and revokes it (it can be used once).
-     * Using an already-revoked token means it was probably stolen, so every
-     * session of that user is ended.
+     * Checks the token and rotates it (it can be used once).
+     * Using an already-rotated token means it was probably stolen, so every
+     * session of that user is ended. Tokens revoked by logout or a password
+     * change are just rejected.
      *
      * @return the id of the user the token belongs to
      */
@@ -53,16 +54,16 @@ public class RefreshTokenService {
         RefreshToken token = refreshTokens.findByTokenHash(hash(rawToken))
                 .orElseThrow(RefreshTokenService::invalid);
 
-        if (token.isRevoked()) {
+        if (token.isRevoked() && token.isRotated()) {
             log.warn("Revoked refresh token reused for user {}; revoking all sessions", token.getUserId());
             refreshTokens.revokeAllForUser(token.getUserId(), now);
             throw invalid();
         }
-        if (token.isExpired(now)) {
+        if (token.isRevoked() || token.isExpired(now)) {
             throw invalid();
         }
 
-        token.revoke(now);
+        token.rotate(now);
         return token.getUserId();
     }
 
